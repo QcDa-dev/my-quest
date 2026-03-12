@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クエスト - My Quest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="common.css">
+</head>
+<body>
+    <main class="p-4">
+        <h2 class="text-2xl font-black mb-4 text-orange-900 border-b-2 border-orange-300 pb-2">クエストボード</h2>
+        
+        <!-- タブ -->
+        <div class="flex border-b-2 border-orange-200 mb-4 overflow-x-auto whitespace-nowrap hide-scrollbar">
+            <button class="tab-button active flex-1" data-tab="daily">デイリー</button>
+            <button class="tab-button flex-1" data-tab="day">曜日</button>
+            <button class="tab-button flex-1" data-tab="weekly">ウィークリー</button>
+            <button class="tab-button flex-1" data-tab="monthly">マンスリー</button>
+        </div>
+
+        <!-- リスト -->
+        <div id="quest-list" class="space-y-3">
+            <p class="text-center text-orange-700 py-10">読み込み中...</p>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initCommonUI, setupAuthGuard, db, appId, currentUser, isCompleted, getCurrentDayString, updateCoins } from './common.js';
+        import { collection, query, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        initCommonUI('quest');
+        let currentTab = 'daily';
+        let allQuests = [];
+        let userWeekStart = 'monday';
+
+        setupAuthGuard((user) => {
+            // 設定取得
+            onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info'), (docSnap) => {
+                if(docSnap.exists()){
+                    userWeekStart = docSnap.data().weekStart || 'monday';
+                    renderQuests(); // 再描画
+                }
+            }, (err) => console.error(err));
+
+            // クエスト取得
+            const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'quests'));
+            onSnapshot(q, (snapshot) => {
+                allQuests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderQuests();
+            }, (err) => console.error(err));
+        });
+
+        // タブ切り替え
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentTab = e.target.dataset.tab;
+                renderQuests();
+            });
+        });
+
+        function renderQuests() {
+            const listContainer = document.getElementById('quest-list');
+            listContainer.innerHTML = '';
+            
+            const currentDay = getCurrentDayString();
+
+            let filtered = allQuests.filter(q => {
+                if (currentTab === 'day') {
+                    return q.type === currentDay; // 該当する曜日のもの
+                }
+                return q.type === currentTab;
+            });
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<p class="text-center text-orange-700 py-10">クエストがありません。</p>`;
+                return;
+            }
+
+            // 未達成を上、達成済みを下にソート
+            filtered.sort((a, b) => {
+                const compA = isCompleted(a.lastCompletedAt, a.type, userWeekStart);
+                const compB = isCompleted(b.lastCompletedAt, b.type, userWeekStart);
+                if (compA === compB) return 0;
+                return compA ? 1 : -1;
+            });
+
+            filtered.forEach(quest => {
+                const completed = isCompleted(quest.lastCompletedAt, quest.type, userWeekStart);
+                
+                const card = document.createElement('div');
+                card.className = `rpg-panel p-4 flex justify-between items-center ${completed ? 'opacity-60 bg-gray-200 border-gray-400' : ''}`;
+                
+                card.innerHTML = `
+                    <div class="flex-1 mr-4">
+                        <h3 class="font-bold text-lg ${completed ? 'text-gray-600 line-through' : 'text-orange-900'}">${quest.name}</h3>
+                        <div class="flex items-center text-sm font-bold text-yellow-600 mt-1">
+                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
+                            ${quest.reward} コイン
+                        </div>
+                    </div>
+                    <button class="rpg-button px-4 py-2 text-sm whitespace-nowrap complete-btn" data-id="${quest.id}" data-reward="${quest.reward}" ${completed ? 'disabled' : ''}>
+                        ${completed ? '達成済み' : '達成！'}
+                    </button>
+                `;
+                listContainer.appendChild(card);
+            });
+
+            // 達成ボタンのイベント
+            document.querySelectorAll('.complete-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    if(!currentUser) return;
+                    const id = e.target.dataset.id;
+                    const reward = parseInt(e.target.dataset.reward);
+                    e.target.disabled = true;
+                    e.target.textContent = '達成済み';
+                    
+                    try {
+                        await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'quests', id), {
+                            lastCompletedAt: new Date()
+                        });
+                        await updateCoins(reward);
+                    } catch (error) {
+                        console.error(error);
+                        e.target.disabled = false;
+                        e.target.textContent = '達成！';
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
