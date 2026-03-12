@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設定 - My Quest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="common.css">
+</head>
+<body>
+    <main class="p-4">
+        <h2 class="text-2xl font-black mb-6 text-orange-900 border-b-2 border-orange-300 pb-2">設定</h2>
+        
+        <div class="space-y-4">
+            <a href="settings-quest-add.html" class="rpg-panel p-4 block text-center font-bold text-lg text-orange-900 hover:bg-orange-200 transition">
+                クエストの追加
+            </a>
+            <a href="settings-quest-edit.html" class="rpg-panel p-4 block text-center font-bold text-lg text-orange-900 hover:bg-orange-200 transition">
+                クエストの編集
+            </a>
+            <a href="settings-ticket-add.html" class="rpg-panel p-4 block text-center font-bold text-lg text-orange-900 hover:bg-orange-200 transition">
+                ご褒美チケットの追加
+            </a>
+            <a href="settings-ticket-edit.html" class="rpg-panel p-4 block text-center font-bold text-lg text-orange-900 hover:bg-orange-200 transition">
+                ご褒美チケットの編集
+            </a>
+            <a href="settings-other.html" class="rpg-panel p-4 block text-center font-bold text-lg text-orange-900 hover:bg-orange-200 transition">
+                その他
+            </a>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initCommonUI, setupAuthGuard } from './common.js';
+        initCommonUI('settings');
+        setupAuthGuard();
+    </script>
+</body>
+</html>
