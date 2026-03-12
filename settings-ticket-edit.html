@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ご褒美チケットの編集 - My Quest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="common.css">
+</head>
+<body>
+    <main class="p-4">
+        <h2 class="text-xl font-black mb-4 text-orange-900 border-b-2 border-orange-300 pb-2">チケットの編集</h2>
+        
+        <a href="settings.html" class="inline-block mb-4 text-orange-800 underline">&lt; 設定に戻る</a>
+
+        <div id="list-view" class="space-y-2">
+            <p class="text-center text-orange-700 py-4">読み込み中...</p>
+        </div>
+
+        <form id="edit-form" class="rpg-panel p-6 space-y-4 hidden">
+            <h3 class="font-bold text-lg text-orange-900 mb-2 border-b border-orange-300">チケット更新</h3>
+            <input type="hidden" id="t-id">
+            <div>
+                <label class="block font-bold text-orange-900 mb-1">チケットの名前・内容</label>
+                <input type="text" id="t-name" class="w-full p-2 border-2 border-orange-800 rounded" required>
+            </div>
+            <div>
+                <label class="block font-bold text-orange-900 mb-1">属性</label>
+                <select id="t-type" class="w-full p-2 border-2 border-orange-800 rounded" required>
+                    <option value="daily">デイリー</option>
+                    <option value="monday">月曜日</option>
+                    <option value="tuesday">火曜日</option>
+                    <option value="wednesday">水曜日</option>
+                    <option value="thursday">木曜日</option>
+                    <option value="friday">金曜日</option>
+                    <option value="saturday">土曜日</option>
+                    <option value="sunday">日曜日</option>
+                    <option value="weekly">ウィークリー</option>
+                    <option value="monthly">マンスリー</option>
+                </select>
+            </div>
+            <div>
+                <label class="block font-bold text-orange-900 mb-1">必要なコイン枚数</label>
+                <input type="number" id="t-cost" min="1" class="w-full p-2 border-2 border-orange-800 rounded" required>
+            </div>
+            
+            <div class="flex space-x-2 mt-4">
+                <button type="button" id="cancel-btn" class="rpg-button bg-gray-500 border-gray-700 shadow-gray-700 flex-1 py-3">キャンセル</button>
+                <button type="submit" class="rpg-button flex-1 py-3">更新する</button>
+            </div>
+            <button type="button" id="delete-btn" class="w-full mt-4 text-red-600 underline text-sm">このチケットを削除</button>
+        </form>
+    </main>
+
+    <script type="module">
+        import { initCommonUI, setupAuthGuard, db, appId, currentUser, showPopup } from './common.js';
+        import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        initCommonUI('settings-sub');
+        let allTickets = [];
+
+        setupAuthGuard((user) => {
+            const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'tickets'));
+            onSnapshot(q, (snapshot) => {
+                allTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderList();
+            });
+        });
+
+        const listView = document.getElementById('list-view');
+        const editForm = document.getElementById('edit-form');
+
+        function renderList() {
+            listView.innerHTML = '';
+            if(allTickets.length === 0){
+                listView.innerHTML = '<p class="text-center text-orange-700 py-4">登録されているチケットはありません。</p>';
+                return;
+            }
+            allTickets.forEach(ticket => {
+                const item = document.createElement('div');
+                item.className = 'rpg-panel p-3 flex justify-between items-center';
+                item.innerHTML = `
+                    <div class="truncate mr-2">
+                        <div class="font-bold text-orange-900 truncate">${ticket.name}</div>
+                        <div class="text-xs text-orange-700">必要: ${ticket.cost} / 属性: ${ticket.type}</div>
+                    </div>
+                    <button class="rpg-button px-3 py-1 text-sm edit-trigger" data-id="${ticket.id}">編集</button>
+                `;
+                listView.appendChild(item);
+            });
+
+            document.querySelectorAll('.edit-trigger').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.dataset.id;
+                    const ticket = allTickets.find(t => t.id === id);
+                    if(ticket){
+                        document.getElementById('t-id').value = ticket.id;
+                        document.getElementById('t-name').value = ticket.name;
+                        document.getElementById('t-type').value = ticket.type;
+                        document.getElementById('t-cost').value = ticket.cost;
+                        listView.classList.add('hidden');
+                        editForm.classList.remove('hidden');
+                    }
+                });
+            });
+        }
+
+        document.getElementById('cancel-btn').addEventListener('click', () => {
+            editForm.classList.add('hidden');
+            listView.classList.remove('hidden');
+        });
+
+        document.getElementById('delete-btn').addEventListener('click', async () => {
+            if(!confirm('本当に削除しますか？')) return;
+            const id = document.getElementById('t-id').value;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tickets', id));
+                editForm.classList.add('hidden');
+                listView.classList.remove('hidden');
+            } catch(e) { console.error(e); }
+        });
+
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('t-id').value;
+            const name = document.getElementById('t-name').value;
+            const type = document.getElementById('t-type').value;
+            const cost = parseInt(document.getElementById('t-cost').value);
+
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tickets', id), {
+                    name, type, cost
+                });
+
+                editForm.classList.add('hidden');
+                listView.classList.remove('hidden');
+
+                const buttonsHtml = `
+                    <button class="rpg-button bg-gray-500 border-gray-700 shadow-gray-700 px-4 py-2" onclick="window.location.href='settings.html'">閉じる</button>
+                    <button class="rpg-button px-4 py-2" onclick="this.closest('.popup-overlay').remove()">続けて編集</button>
+                `;
+                showPopup('更新しました', false, buttonsHtml);
+
+            } catch (error) {
+                console.error(error);
+                showPopup('更新に失敗しました');
+            }
+        });
+    </script>
+</body>
+</html>
