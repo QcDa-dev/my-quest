@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ご褒美交換 - My Quest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="common.css">
+</head>
+<body>
+    <main class="p-4">
+        <h2 class="text-2xl font-black mb-4 text-orange-900 border-b-2 border-orange-300 pb-2">ご褒美交換所</h2>
+        
+        <!-- タブ -->
+        <div class="flex border-b-2 border-orange-200 mb-4 overflow-x-auto whitespace-nowrap hide-scrollbar">
+            <button class="tab-button active flex-1" data-tab="daily">デイリー</button>
+            <button class="tab-button flex-1" data-tab="day">曜日</button>
+            <button class="tab-button flex-1" data-tab="weekly">ウィークリー</button>
+            <button class="tab-button flex-1" data-tab="monthly">マンスリー</button>
+        </div>
+
+        <!-- リスト -->
+        <div id="ticket-list" class="space-y-3">
+            <p class="text-center text-orange-700 py-10">読み込み中...</p>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initCommonUI, setupAuthGuard, db, appId, currentUser, isCompleted, getCurrentDayString, updateCoins, showPopup } from './common.js';
+        import { collection, query, onSnapshot, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        initCommonUI('exchange');
+        let currentTab = 'daily';
+        let allTickets = [];
+        let userWeekStart = 'monday';
+        let currentCoins = 0;
+
+        setupAuthGuard((user) => {
+            // 設定・コイン取得
+            onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info'), (docSnap) => {
+                if(docSnap.exists()){
+                    userWeekStart = docSnap.data().weekStart || 'monday';
+                    currentCoins = docSnap.data().coins || 0;
+                    renderTickets();
+                }
+            }, (err) => console.error(err));
+
+            // チケット取得
+            const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'tickets'));
+            onSnapshot(q, (snapshot) => {
+                allTickets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderTickets();
+            }, (err) => console.error(err));
+        });
+
+        // タブ切り替え
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentTab = e.target.dataset.tab;
+                renderTickets();
+            });
+        });
+
+        function renderTickets() {
+            const listContainer = document.getElementById('ticket-list');
+            listContainer.innerHTML = '';
+            
+            const currentDay = getCurrentDayString();
+
+            let filtered = allTickets.filter(t => {
+                if (currentTab === 'day') {
+                    return t.type === currentDay;
+                }
+                return t.type === currentTab;
+            });
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<p class="text-center text-orange-700 py-10">交換できるご褒美がありません。</p>`;
+                return;
+            }
+
+            // 交換済みを下にソート
+            filtered.sort((a, b) => {
+                const compA = isCompleted(a.lastExchangedAt, a.type, userWeekStart);
+                const compB = isCompleted(b.lastExchangedAt, b.type, userWeekStart);
+                if (compA === compB) return 0;
+                return compA ? 1 : -1;
+            });
+
+            filtered.forEach(ticket => {
+                const exchanged = isCompleted(ticket.lastExchangedAt, ticket.type, userWeekStart);
+                const owned = ticket.ownedCount || 0;
+                
+                const card = document.createElement('div');
+                card.className = `rpg-panel p-4 flex justify-between items-center ${exchanged ? 'opacity-60 bg-gray-200 border-gray-400' : ''}`;
+                
+                card.innerHTML = `
+                    <div class="flex-1 mr-4">
+                        <h3 class="font-bold text-lg ${exchanged ? 'text-gray-600' : 'text-orange-900'}">${ticket.name}</h3>
+                        <div class="flex items-center text-sm font-bold text-yellow-600 mt-1">
+                            必要コイン: ${ticket.cost}
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <button class="rpg-button px-4 py-2 text-sm whitespace-nowrap exchange-btn" data-id="${ticket.id}" data-cost="${ticket.cost}" data-name="${ticket.name}" ${exchanged ? 'disabled' : ''}>
+                            ${exchanged ? '交換済み' : '交換する'}
+                        </button>
+                        <span class="text-xs text-orange-800 font-bold mt-1">所持数: ${owned}</span>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+
+            // 交換ボタンのイベント
+            document.querySelectorAll('.exchange-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    if(!currentUser) return;
+                    const id = e.target.dataset.id;
+                    const cost = parseInt(e.target.dataset.cost);
+                    const name = e.target.dataset.name;
+                    
+                    if (currentCoins < cost) {
+                        showPopup('必要なコインが不足しているため交換できません');
+                        return;
+                    }
+
+                    e.target.disabled = true;
+                    
+                    try {
+                        const ticketRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tickets', id);
+                        const ticketSnap = await getDoc(ticketRef);
+                        const currentOwned = ticketSnap.exists() ? (ticketSnap.data().ownedCount || 0) : 0;
+                        
+                        await updateDoc(ticketRef, {
+                            lastExchangedAt: new Date(),
+                            ownedCount: currentOwned + 1
+                        });
+                        await updateCoins(-cost);
+                        
+                        showPopup(`交換完了！<br><span class="text-orange-600">${name}</span> ×1`);
+                    } catch (error) {
+                        console.error(error);
+                        e.target.disabled = false;
+                    }
+                });
+            });
+        }
+    </script>
+</body>
+</html>
