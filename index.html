@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログイン - My Quest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="common.css">
+</head>
+<body>
+    <main class="flex items-center justify-center p-6 mt-10">
+        <div class="rpg-panel p-8 w-full max-w-sm text-center">
+            <svg class="w-16 h-16 mx-auto mb-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01"></path></svg>
+            <h2 class="text-2xl font-black mb-6 text-orange-900">冒険のはじまり</h2>
+            
+            <form id="auth-form" class="space-y-4">
+                <input type="text" id="username" placeholder="ユーザーネーム" class="w-full p-3 border-2 border-orange-800 rounded focus:outline-none focus:ring-2 focus:ring-orange-500" required>
+                <input type="password" id="password" placeholder="パスワード" class="w-full p-3 border-2 border-orange-800 rounded focus:outline-none focus:ring-2 focus:ring-orange-500" required>
+                
+                <button type="submit" id="login-btn" class="rpg-button w-full py-3 text-lg mt-4">ログインする</button>
+            </form>
+            
+            <div class="mt-6 border-t-2 border-orange-300 pt-4">
+                <p class="text-sm mb-2 text-orange-800">はじめての方はこちら</p>
+                <button id="register-toggle-btn" class="rpg-button bg-yellow-600 border-yellow-800 shadow-yellow-800 w-full py-2">新規登録はこちら</button>
+            </div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initCommonUI, auth, formatEmail, showPopup } from './common.js';
+        import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        let isLoginMode = true;
+
+        initCommonUI('login');
+
+        // ログイン状態ならクエスト画面へ
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                window.location.href = 'quest.html';
+            }
+        });
+
+        const form = document.getElementById('auth-form');
+        const loginBtn = document.getElementById('login-btn');
+        const toggleBtn = document.getElementById('register-toggle-btn');
+        const title = document.querySelector('h2');
+
+        toggleBtn.addEventListener('click', () => {
+            isLoginMode = !isLoginMode;
+            if (isLoginMode) {
+                title.textContent = '冒険のはじまり';
+                loginBtn.textContent = 'ログインする';
+                toggleBtn.textContent = '新規登録はこちら';
+            } else {
+                title.textContent = '新規登録';
+                loginBtn.textContent = '登録する';
+                toggleBtn.textContent = 'ログイン画面に戻る';
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if(!username || !password) return;
+            
+            // Firebase Authを利用するため、ユーザーネームをダミーメールに変換
+            const email = formatEmail(username);
+            
+            try {
+                if (isLoginMode) {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } else {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                }
+            } catch (error) {
+                console.error(error);
+                if (isLoginMode) {
+                    showPopup('ログインできませんでした。ユーザーネームかパスワードが間違っています。');
+                } else {
+                    if (error.code === 'auth/email-already-in-use') {
+                        showPopup('このユーザーネームはすでに登録されているため使用できません。');
+                    } else {
+                        showPopup('登録に失敗しました。パスワードは6文字以上にしてください。');
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
