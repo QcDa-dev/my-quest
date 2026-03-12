@@ -4,10 +4,13 @@ import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWith
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Firebase Configuration (Empty key, provided by environment)
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-    apiKey: "",
-    authDomain: "dummy.firebaseapp.com",
-    projectId: "dummy-project"
+const firebaseConfig = {
+  apiKey: "AIzaSyAw30CzAsXQJRZa8Cs1s4SuAZ3o6esE68M",
+  authDomain: "my-quest-7c6a0.firebaseapp.com",
+  projectId: "my-quest-7c6a0",
+  storageBucket: "my-quest-7c6a0.firebasestorage.app",
+  messagingSenderId: "395686779493",
+  appId: "1:395686779493:web:68c30c9080fee36f71048c"
 };
 
 const app = initializeApp(firebaseConfig);
