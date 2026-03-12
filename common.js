@@ -29,7 +29,7 @@ export function initCommonUI(currentPage) {
     createSideMenu();
     if (currentPage !== 'login') {
         createBottomNav(currentPage);
-        setupCoinListener();
+        // setupCoinListener(); // ←ここから削除し、認証完了後に呼び出します
     }
     createFooter();
 }
@@ -146,6 +146,10 @@ export function setupAuthGuard(callback) {
             if (!profileSnap.exists()) {
                 await setDoc(profileRef, { coins: 0, weekStart: 'monday' });
             }
+            
+            // 認証完了後にコイン数の監視を開始
+            setupCoinListener();
+            
             if (callback) callback(user);
         } else {
             currentUser = null;
