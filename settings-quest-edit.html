@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クエストの編集 - My Quest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="common.css">
+</head>
+<body>
+    <main class="p-4">
+        <h2 class="text-xl font-black mb-4 text-orange-900 border-b-2 border-orange-300 pb-2">クエストの編集</h2>
+        
+        <a href="settings.html" class="inline-block mb-4 text-orange-800 underline">&lt; 設定に戻る</a>
+
+        <!-- 一覧表示領域 -->
+        <div id="list-view" class="space-y-2">
+            <p class="text-center text-orange-700 py-4">読み込み中...</p>
+        </div>
+
+        <!-- 編集フォーム領域 (初期非表示) -->
+        <form id="edit-form" class="rpg-panel p-6 space-y-4 hidden">
+            <h3 class="font-bold text-lg text-orange-900 mb-2 border-b border-orange-300">クエスト更新</h3>
+            <input type="hidden" id="q-id">
+            <div>
+                <label class="block font-bold text-orange-900 mb-1">クエストの名前・内容</label>
+                <input type="text" id="q-name" class="w-full p-2 border-2 border-orange-800 rounded" required>
+            </div>
+            <div>
+                <label class="block font-bold text-orange-900 mb-1">属性</label>
+                <select id="q-type" class="w-full p-2 border-2 border-orange-800 rounded" required>
+                    <option value="daily">デイリー</option>
+                    <option value="monday">月曜日</option>
+                    <option value="tuesday">火曜日</option>
+                    <option value="wednesday">水曜日</option>
+                    <option value="thursday">木曜日</option>
+                    <option value="friday">金曜日</option>
+                    <option value="saturday">土曜日</option>
+                    <option value="sunday">日曜日</option>
+                    <option value="weekly">ウィークリー</option>
+                    <option value="monthly">マンスリー</option>
+                </select>
+            </div>
+            <div>
+                <label class="block font-bold text-orange-900 mb-1">報酬コイン枚数</label>
+                <input type="number" id="q-reward" min="1" class="w-full p-2 border-2 border-orange-800 rounded" required>
+            </div>
+            
+            <div class="flex space-x-2 mt-4">
+                <button type="button" id="cancel-btn" class="rpg-button bg-gray-500 border-gray-700 shadow-gray-700 flex-1 py-3">キャンセル</button>
+                <button type="submit" class="rpg-button flex-1 py-3">更新する</button>
+            </div>
+            <button type="button" id="delete-btn" class="w-full mt-4 text-red-600 underline text-sm">このクエストを削除</button>
+        </form>
+    </main>
+
+    <script type="module">
+        import { initCommonUI, setupAuthGuard, db, appId, currentUser, showPopup } from './common.js';
+        import { collection, query, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        initCommonUI('settings-sub');
+        let allQuests = [];
+
+        setupAuthGuard((user) => {
+            const q = query(collection(db, 'artifacts', appId, 'users', user.uid, 'quests'));
+            onSnapshot(q, (snapshot) => {
+                allQuests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderList();
+            });
+        });
+
+        const listView = document.getElementById('list-view');
+        const editForm = document.getElementById('edit-form');
+
+        function renderList() {
+            listView.innerHTML = '';
+            if(allQuests.length === 0){
+                listView.innerHTML = '<p class="text-center text-orange-700 py-4">登録されているクエストはありません。</p>';
+                return;
+            }
+            allQuests.forEach(quest => {
+                const item = document.createElement('div');
+                item.className = 'rpg-panel p-3 flex justify-between items-center';
+                item.innerHTML = `
+                    <div class="truncate mr-2">
+                        <div class="font-bold text-orange-900 truncate">${quest.name}</div>
+                        <div class="text-xs text-orange-700">報酬: ${quest.reward} / 属性: ${quest.type}</div>
+                    </div>
+                    <button class="rpg-button px-3 py-1 text-sm edit-trigger" data-id="${quest.id}">編集</button>
+                `;
+                listView.appendChild(item);
+            });
+
+            document.querySelectorAll('.edit-trigger').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.dataset.id;
+                    const quest = allQuests.find(q => q.id === id);
+                    if(quest){
+                        document.getElementById('q-id').value = quest.id;
+                        document.getElementById('q-name').value = quest.name;
+                        document.getElementById('q-type').value = quest.type;
+                        document.getElementById('q-reward').value = quest.reward;
+                        listView.classList.add('hidden');
+                        editForm.classList.remove('hidden');
+                    }
+                });
+            });
+        }
+
+        document.getElementById('cancel-btn').addEventListener('click', () => {
+            editForm.classList.add('hidden');
+            listView.classList.remove('hidden');
+        });
+
+        document.getElementById('delete-btn').addEventListener('click', async () => {
+            if(!confirm('本当に削除しますか？')) return;
+            const id = document.getElementById('q-id').value;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'quests', id));
+                editForm.classList.add('hidden');
+                listView.classList.remove('hidden');
+            } catch(e) { console.error(e); }
+        });
+
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('q-id').value;
+            const name = document.getElementById('q-name').value;
+            const type = document.getElementById('q-type').value;
+            const reward = parseInt(document.getElementById('q-reward').value);
+
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', currentUser.uid, 'quests', id), {
+                    name, type, reward
+                });
+
+                editForm.classList.add('hidden');
+                listView.classList.remove('hidden');
+
+                const buttonsHtml = `
+                    <button class="rpg-button bg-gray-500 border-gray-700 shadow-gray-700 px-4 py-2" onclick="window.location.href='settings.html'">閉じる</button>
+                    <button class="rpg-button px-4 py-2" onclick="this.closest('.popup-overlay').remove()">続けて編集</button>
+                `;
+                showPopup('更新しました', false, buttonsHtml);
+
+            } catch (error) {
+                console.error(error);
+                showPopup('更新に失敗しました');
+            }
+        });
+    </script>
+</body>
+</html>
