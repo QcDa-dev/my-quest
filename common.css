@@ -1,0 +1,212 @@
+/* * common.css
+ * My Quest 共通スタイルシート
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&display=swap');
+
+body {
+    font-family: 'M PLUS Rounded 1c', sans-serif;
+    background-color: #FFF7ED; /* tailwind orange-50 */
+    color: #431407; /* tailwind orange-950 */
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* RPG風のUIパーツ */
+.rpg-panel {
+    background-color: #FFEDD5;
+    border: 3px solid #9A3412;
+    border-radius: 12px;
+    box-shadow: 4px 4px 0px #9A3412;
+}
+
+.rpg-button {
+    background-color: #EA580C;
+    color: white;
+    border: 2px solid #7C2D12;
+    border-radius: 8px;
+    box-shadow: 0 4px 0 #9A3412;
+    transition: transform 0.1s, box-shadow 0.1s;
+    font-weight: bold;
+}
+
+.rpg-button:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #9A3412;
+}
+
+.rpg-button:disabled {
+    background-color: #9CA3AF;
+    border-color: #4B5563;
+    box-shadow: 0 4px 0 #4B5563;
+    cursor: not-allowed;
+}
+
+.rpg-button:disabled:active {
+    transform: none;
+    box-shadow: 0 4px 0 #4B5563;
+}
+
+/* アニメーション */
+.fade-in {
+    animation: fadeIn 0.3s ease-in forwards;
+}
+
+.fade-out {
+    animation: fadeOut 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-10px); }
+}
+
+/* チケットが割れる演出 */
+.ticket-break {
+    animation: breakTicket 0.6s ease-out forwards;
+    transform-origin: center;
+}
+
+@keyframes breakTicket {
+    0% { transform: scale(1); filter: brightness(1); }
+    20% { transform: scale(1.1) rotate(5deg); filter: brightness(1.2); }
+    40% { transform: scale(1.1) rotate(-5deg); }
+    60% { transform: scale(1.1) rotate(5deg); opacity: 1; }
+    100% { transform: scale(0.5) translateY(50px); opacity: 0; }
+}
+
+/* ハンバーガーメニュー */
+#sideMenu {
+    height: 100%;
+    width: 0;
+    position: fixed;
+    z-index: 1002;
+    top: 0;
+    right: 0;
+    background-color: #FFEDD5;
+    overflow-x: hidden;
+    transition: 0.3s;
+    padding-top: 60px;
+    box-shadow: -5px 0 15px rgba(0,0,0,0.2);
+    border-left: 3px solid #9A3412;
+}
+
+#sideMenu a {
+    padding: 12px 15px 12px 32px;
+    text-decoration: none;
+    font-size: 18px;
+    color: #431407;
+    display: block;
+    transition: 0.2s;
+    font-weight: bold;
+}
+
+#sideMenu a:hover {
+    background-color: #FDBA74;
+}
+
+#menuOverlay {
+    position: fixed;
+    display: none;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background-color: rgba(0,0,0,0.5);
+    z-index: 1001;
+    cursor: pointer;
+}
+
+/* タブのスタイル */
+.tab-button {
+    padding: 8px 16px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    color: #9A3412;
+    font-weight: bold;
+}
+
+.tab-button.active {
+    border-bottom: 2px solid #EA580C;
+    color: #EA580C;
+}
+
+/* ポップアップ */
+.popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.popup-content {
+    background: #FFEDD5;
+    border: 3px solid #9A3412;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    min-width: 300px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+
+/* メインコンテンツエリア (フッターとボトムナビゲーションを考慮) */
+main {
+    flex-grow: 1;
+    padding-bottom: 80px; /* ボトムナビのスペース */
+}
+
+/* ボトムナビゲーション */
+#bottomNav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #FFEDD5;
+    border-top: 3px solid #9A3412;
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+    z-index: 1000;
+}
+
+.nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #9A3412;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: bold;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.nav-item.active {
+    opacity: 1;
+    color: #EA580C;
+}
+
+.nav-item svg {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 4px;
+}
+
+/* フッター */
+footer {
+    text-align: center;
+    padding: 15px 0 90px 0; /* ボトムナビの下に隠れないように */
+    font-size: 12px;
+    color: #78350F;
+}
