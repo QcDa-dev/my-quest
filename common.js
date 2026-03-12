@@ -140,11 +140,16 @@ export function setupAuthGuard(callback) {
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             currentUser = user;
-            // ユーザープロファイルの初期化確認
-            const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info');
-            const profileSnap = await getDoc(profileRef);
-            if (!profileSnap.exists()) {
-                await setDoc(profileRef, { coins: 0, weekStart: 'monday' });
+            
+            try {
+                // ユーザープロファイルの初期化確認
+                const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info');
+                const profileSnap = await getDoc(profileRef);
+                if (!profileSnap.exists()) {
+                    await setDoc(profileRef, { coins: 0, weekStart: 'monday' });
+                }
+            } catch (error) {
+                console.error("プロファイルの初期化エラー:", error);
             }
             
             // 認証完了後にコイン数の監視を開始
@@ -175,10 +180,15 @@ function setupCoinListener() {
     
     // 変数名「doc」がインポートした関数名と被らないように「docSnap」に変更
     unsubscribeCoin = onSnapshot(profileRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const coinEl = document.getElementById('header-coin-count');
-            if(coinEl) {
-                coinEl.textContent = docSnap.data().coins || 0;
+        const coinEl = document.getElementById('header-coin-count');
+        if (coinEl) {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // 値が存在しない場合は0を表示
+                coinEl.textContent = data.coins !== undefined ? data.coins : 0;
+            } else {
+                // ドキュメントが存在しない場合も0を表示
+                coinEl.textContent = 0;
             }
         }
     }, (error) => console.error("Coin listener error:", error));
