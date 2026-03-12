@@ -1,7 +1,7 @@
 // common.js
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, addDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // Firebase Configuration (Empty key, provided by environment)
 const firebaseConfig = {
@@ -160,13 +160,26 @@ export function setupAuthGuard(callback) {
     });
 }
 
+// リスナーの重複登録を防ぐための変数
+let unsubscribeCoin = null;
+
 function setupCoinListener() {
     if (!currentUser) return;
+    
+    // すでにリスナーが登録されている場合は解除
+    if (unsubscribeCoin) {
+        unsubscribeCoin();
+    }
+    
     const profileRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'info');
-    onSnapshot(profileRef, (doc) => {
-        if (doc.exists()) {
+    
+    // 変数名「doc」がインポートした関数名と被らないように「docSnap」に変更
+    unsubscribeCoin = onSnapshot(profileRef, (docSnap) => {
+        if (docSnap.exists()) {
             const coinEl = document.getElementById('header-coin-count');
-            if(coinEl) coinEl.textContent = doc.data().coins || 0;
+            if(coinEl) {
+                coinEl.textContent = docSnap.data().coins || 0;
+            }
         }
     }, (error) => console.error("Coin listener error:", error));
 }
@@ -236,9 +249,9 @@ export function getCurrentDayString() {
 export async function updateCoins(amount) {
     if(!currentUser) return;
     const profileRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'info');
-    const snap = await getDoc(profileRef);
-    if(snap.exists()){
-        const currentCoins = snap.data().coins || 0;
-        await updateDoc(profileRef, { coins: currentCoins + amount });
-    }
+    
+    // getDocを使わず、incrementで直接増減させることで即時反映を確実にする
+    await updateDoc(profileRef, { 
+        coins: increment(amount) 
+    });
 }
